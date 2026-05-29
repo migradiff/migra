@@ -23,3 +23,8 @@ Version 3.0.1663481299 (from Sep 18, 2022) was the final release, and there will
     $ pg_dump -s postgres://db_production > schema_a.sql
     $ pg_dump -s postgres://db_branch     > schema_b.sql
     $ migra --from-file schema_a.sql schema_b.sql
+
+### Pre-commit Hook
+
+Add migra schema drift detection to your pre-commit workflow.
+See `.pre-commit-hooks.yaml` and `pre-commit-config.example.yaml` in the repo root.

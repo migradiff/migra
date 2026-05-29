@@ -1,0 +1,9 @@
+- id: migra
+  name: MigraDiff Schema Check
+  description: >
+    Runs migra to detect schema drift between your current branch
+    and a baseline. Requires MIGRA_BASE_URL environment variable.
+  language: python
+  entry: migra
+  types: [sql]
+  pass_filenames: false

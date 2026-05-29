@@ -10,3 +10,5 @@
 ### Added
 - `--from-file` mode: diff `pg_dump -s` schema files directly without
   a live database connection — no production credentials required
+- `.pre-commit-hooks.yaml`: pre-commit hook for local schema drift
+  detection; example configuration in `pre-commit-config.example.yaml`
