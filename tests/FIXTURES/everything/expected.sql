@@ -44,13 +44,9 @@ drop table "public"."aunwanted";
 
 drop table "public"."columnless_table";
 
-alter type "public"."shipping_status" rename to "shipping_status__old_version_to_be_dropped";
+alter type "public"."shipping_status" add value 'delivered' after 'shipped';
 
-create type "public"."shipping_status" as enum ('not shipped', 'shipped', 'delivered');
-
-alter type "public"."unused_enum" rename to "unused_enum__old_version_to_be_dropped";
-
-create type "public"."unused_enum" as enum ('a', 'b', 'c');
+alter type "public"."unused_enum" add value 'c' after 'b';
 
 create table "public"."bug" (
     "id" integer not null default nextval('bug_id_seq'::regclass),
@@ -71,10 +67,6 @@ create table "public"."order_items" (
 
 
 alter table "public"."orders" alter column status type "public"."shipping_status" using status::text::"public"."shipping_status";
-
-drop type "public"."shipping_status__old_version_to_be_dropped";
-
-drop type "public"."unused_enum__old_version_to_be_dropped";
 
 alter table "public"."change_to_logged" set logged;
 

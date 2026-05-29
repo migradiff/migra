@@ -76,6 +76,19 @@ def classify_sql_statement(sql):
         }
 
     m = re.match(
+        r"DROP\s+TYPE\s+(?:IF\s+EXISTS\s+)?(.+?);?\s*$",
+        normalized,
+    )
+    if m:
+        name = _original_case(sql, m.group(1).strip())
+        return {
+            "type": stmt_type,
+            "operation": "DROP",
+            "object": name,
+            "risk": "destructive",
+        }
+
+    m = re.match(
         r"ALTER\s+TABLE\s+(.+?)\s+DROP\s+(?:COLUMN\s+)?(.+?)(?:\s+CASCADE|\s+RESTRICT)?;?\s*$",
         normalized,
     )

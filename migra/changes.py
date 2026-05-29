@@ -188,19 +188,26 @@ def get_enum_modifications(
                 if has_default:
                     post.append(before.add_default_statement(t))
 
-    unwanted_suffix = "__old_version_to_be_dropped"
-
     for e in enums_to_change.values():
-        unwanted_name = e.name + unwanted_suffix
+        old_enum = enums_from[e.signature]
+        new_enum = enums_target[e.signature]
 
-        rename = e.alter_rename_statement(unwanted_name)
-        pre.append(rename)
+        if old_enum.can_be_changed_to(new_enum):
+            change_stmts = old_enum.change_statements(new_enum)
+            for stmt in change_stmts:
+                pre.append(stmt)
+        else:
+            unwanted_suffix = "__old_version_to_be_dropped"
+            unwanted_name = old_enum.name + unwanted_suffix
 
-        pre.append(e.create_statement)
+            rename = old_enum.alter_rename_statement(unwanted_name)
+            pre.append(rename)
 
-        drop_statement = e.drop_statement_with_rename(unwanted_name)
+            pre.append(new_enum.create_statement)
 
-        post.append(drop_statement)
+            drop_statement = old_enum.drop_statement_with_rename(unwanted_name)
+
+            post.append(drop_statement)
 
     if return_tuple:
         return pre, recreate + post

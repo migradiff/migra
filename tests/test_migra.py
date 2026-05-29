@@ -753,3 +753,100 @@ def test_mv_dependency_ordering_chain():
         m.add_all_changes()
         names = _mv_create_names(m.sql)
         assert names == ["a", "b", "c"]
+
+
+# --- Enum evolution tests ---
+
+
+def test_enum_value_added():
+    with temporary_database(host="localhost") as d0, temporary_database(
+        host="localhost"
+    ) as d1:
+        with S(d0) as s0, S(d1) as s1:
+            s0.execute(
+                "CREATE TYPE public.status AS ENUM ('pending', 'active', 'inactive');"
+            )
+            s1.execute(
+                "CREATE TYPE public.status AS ENUM ('pending', 'active', 'inactive', 'archived');"
+            )
+
+        m = Migration(s0, s1)
+        m.set_safety(False)
+        m.add_all_changes()
+        sql = m.sql.strip()
+        sql_upper = sql.upper()
+        assert "ALTER TYPE" in sql_upper
+        assert "ADD VALUE" in sql_upper
+        assert "archived" in sql
+        assert "drop type" not in sql
+
+
+def test_enum_value_removed():
+    with temporary_database(host="localhost") as d0, temporary_database(
+        host="localhost"
+    ) as d1:
+        with S(d0) as s0, S(d1) as s1:
+            s0.execute(
+                "CREATE TYPE public.status AS ENUM ('pending', 'active', 'inactive');"
+            )
+            s1.execute("CREATE TYPE public.status AS ENUM ('pending', 'active');")
+
+        m = Migration(s0, s1)
+        m.set_safety(False)
+        m.add_all_changes()
+        sql = m.sql.strip()
+        assert "drop type" in sql
+        assert "create type" in sql
+
+
+def test_enum_value_reordered():
+    with temporary_database(host="localhost") as d0, temporary_database(
+        host="localhost"
+    ) as d1:
+        with S(d0) as s0, S(d1) as s1:
+            s0.execute(
+                "CREATE TYPE public.status AS ENUM ('pending', 'active', 'inactive');"
+            )
+            s1.execute(
+                "CREATE TYPE public.status AS ENUM ('active', 'inactive', 'pending');"
+            )
+
+        m = Migration(s0, s1)
+        m.set_safety(False)
+        m.add_all_changes()
+        sql = m.sql.strip()
+        assert "drop type" in sql
+        assert "create type" in sql
+
+
+def test_enum_type_dropped():
+    with temporary_database(host="localhost") as d0, temporary_database(
+        host="localhost"
+    ) as d1:
+        with S(d0) as s0, S(d1) as s1:
+            s0.execute(
+                "CREATE TYPE public.status AS ENUM ('pending', 'active', 'inactive');"
+            )
+
+        m = Migration(s0, s1)
+        m.set_safety(False)
+        m.add_all_changes()
+        sql = m.sql.strip()
+        assert "drop type" in sql
+
+
+def test_enum_type_added():
+    with temporary_database(host="localhost") as d0, temporary_database(
+        host="localhost"
+    ) as d1:
+        with S(d0) as s0, S(d1) as s1:
+            s1.execute(
+                "CREATE TYPE public.status AS ENUM ('pending', 'active', 'inactive');"
+            )
+
+        m = Migration(s0, s1)
+        m.set_safety(False)
+        m.add_all_changes()
+        sql = m.sql.strip()
+        assert "create type" in sql
+        assert "enum" in sql

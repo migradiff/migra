@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- Enum evolution diffing: ALTER TYPE ... ADD VALUE IF NOT EXISTS for
+  safe additions; DROP + CREATE for removals and reorders;
+  removals classified as destructive in --output json mode
 - Composite type diffing: detects field additions, removals, and type
   changes; generates safe drop + create DDL
 - Domain diffing: detects constraint and base type changes
