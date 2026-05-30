@@ -22,6 +22,13 @@ If you were using `djrobstep/migra`, this is your drop-in continuation.
 Nothing has changed about how the tool works. We're just keeping the
 lights on and making it better.
 
+**A note on naming:** This is an independent community fork. The CLI 
+command remains `migra` for drop-in backward compatibility with 
+existing scripts and pipelines. The package name is `migradiff` to 
+distinguish it from the deprecated upstream. If you are looking for 
+the original djrobstep/migra, it is archived at 
+https://github.com/djrobstep/migra.
+
 ---
 
 ## Quickstart
