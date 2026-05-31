@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+- --generate flag: AI-powered migration generator from plain
+  English descriptions; schema-aware using real table names and
+  column types from live connection or schema file; safety rules
+  refuse bulk destructive descriptions; soft warns on individual
+  destructive operations; combinable with --advise for immediate
+  risk assessment and --output json
 - --advise flag: AI-powered performance risk analysis for any
   migration diff or file; classifies each statement as HIGH,
   MEDIUM, or LOW risk; identifies table locks, rewrites, and

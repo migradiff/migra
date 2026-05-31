@@ -524,6 +524,15 @@ def parse_args(args):
         help="Generate an AI-powered performance risk assessment of the migration",
     )
     parser.add_argument(
+        "--generate",
+        dest="generate",
+        nargs="?",
+        const=True,
+        default=False,
+        help="Generate a PostgreSQL migration from a plain English description."
+        " Optionally provide the description as an argument.",
+    )
+    parser.add_argument(
         "dburl_from", nargs="?", help="The database you want to migrate."
     )
     parser.add_argument(
@@ -550,6 +559,147 @@ def run(args, out=None, err=None):
         result = generate_file_rollback(args.rollback)
         if result["text"]:
             print(result["text"], file=out)
+        return 0
+
+    # Generate mode
+    if args.generate:
+        from .ai_explain import (
+            AIGenerator,
+            check_safety_rules,
+            extract_relevant_schema,
+            parse_schema_file_for_tables,
+            resolve_api_key,
+            redact_api_key,
+            classify_statement_risk,
+        )
+
+        description = args.generate if isinstance(args.generate, str) else None
+        if not description or description is True:
+            print(
+                "MigraDiff: --generate requires a description.\n"
+                'Usage: migra --generate "add email column to users"'
+                " postgres://db_url",
+                file=err,
+            )
+            return 1
+
+        try:
+            import anthropic  # noqa: F401
+        except ImportError:
+            print(
+                "MigraDiff: --generate requires the AI extras.",
+                file=err,
+            )
+            print("Install with: pip install migradiff[ai]", file=err)
+            return 1
+
+        api_key = resolve_api_key(cli_key=args.api_key)
+        if not api_key:
+            print(
+                "MigraDiff: --generate requires an Anthropic API key.",
+                file=err,
+            )
+            print(file=err)
+            print("Set it up once with:", file=err)
+            print("  migra --setup-ai", file=err)
+            print(file=err)
+            print("Or set the environment variable:", file=err)
+            print("  export ANTHROPIC_API_KEY=sk-ant-...", file=err)
+            print(file=err)
+            print(
+                "Get an API key at: https://console.anthropic.com",
+                file=err,
+            )
+            return 1
+
+        # Safety check first
+        safety = check_safety_rules(description)
+        if safety["action"] == "refuse":
+            print(
+                "MigraDiff: Refusing to generate bulk destructive migration.",
+                file=err,
+            )
+            print(safety["reason"], file=err)
+            print(
+                "If intentional, write the SQL manually and" " use --advise to review.",
+                file=err,
+            )
+            return 1
+
+        # Extract schema context
+        schema_context = ""
+        if args.from_file and args.dburl_from:
+            schema_context = parse_schema_file_for_tables(args.dburl_from)
+        elif args.dburl_from and "://" in args.dburl_from:
+            try:
+                schema_context = extract_relevant_schema(args.dburl_from, description)
+            except Exception:
+                schema_context = ""
+
+        generator = AIGenerator(api_key)
+        try:
+            result = generator.generate(description, schema_context)
+        except RuntimeError as e:
+            print(str(e), file=err)
+            return 1
+        except Exception as e:
+            msg = redact_api_key(str(e))
+            print(
+                "MigraDiff: AI generation failed: {}".format(msg),
+                file=err,
+            )
+            return 1
+
+        # Output
+        if args.output == "json":
+            import json as json_mod
+
+            json_out = json_mod.dumps(
+                {
+                    "version": "1.0",
+                    "generated": {
+                        "description": description,
+                        "sql": result.get("generated_sql", result["text"]),
+                        "schema_context_used": result.get("schema_context_used", []),
+                        "model": result.get("model", ""),
+                        "generated_at": result.get("generated_at", ""),
+                        "warnings": ["Review before applying to production"],
+                    },
+                },
+                indent=2,
+            )
+            print(json_out, file=out)
+        else:
+            print(result["text"], file=out)
+
+        # If --advise also set, run deterministic risk classification
+        if args.advise and result.get("generated_sql"):
+            advisory_lines = []
+            advisory_lines.append("")
+            advisory_lines.append("--- Performance Advisory ---")
+            stmts = result["generated_sql"].split("\n")
+            for stmt in stmts:
+                stmt = stmt.strip()
+                if stmt and not stmt.startswith("--"):
+                    risk = classify_statement_risk(stmt)
+                    advisory_lines.append("")
+                    advisory_lines.append("Statement: {}".format(stmt))
+                    advisory_lines.append(
+                        "Risk: {} {}".format(
+                            risk["risk"],
+                            (
+                                "\u26a0"
+                                if risk["risk"] == "HIGH"
+                                else (
+                                    "\u26a1" if risk["risk"] == "MEDIUM" else "\u2713"
+                                )
+                            ),
+                        )
+                    )
+                    advisory_lines.append("Issue: {}".format(risk["issue"]))
+            if len(advisory_lines) > 2:
+                print("\n".join(advisory_lines), file=out)
+
         return 0
 
     # Advise mode with file (no connection strings needed)

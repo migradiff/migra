@@ -991,6 +991,395 @@ def generate_file_advisory(filepath, api_key=None):
     return advisor.advise(sql, [])
 
 
+GENERATE_SYSTEM_PROMPT = (
+    "You are a PostgreSQL migration expert. Generate a SQL migration"
+    " script based on the user's description and their actual schema"
+    " context.\n"
+    "Rules:\n"
+    "1. Output only valid PostgreSQL DDL \u2014 no prose, no markdown\n"
+    "2. Use exact table and column names from the schema context\n"
+    "3. Use appropriate PostgreSQL types (text not varchar, timestamptz"
+    " not timestamp, serial or identity for auto-increment)\n"
+    "4. Add IF NOT EXISTS where appropriate to make migrations idempotent\n"
+    "5. Add CONCURRENTLY to CREATE INDEX statements\n"
+    "6. Never DROP anything unless explicitly requested\n"
+    "7. Never modify existing columns unless explicitly requested\n"
+    "8. Start each statement on a new line\n"
+    "9. End each statement with a semicolon\n"
+    "10. Add a SQL comment before each logical group of statements"
+)
+
+GENERATE_MAX_TOKENS = 2048
+
+HARD_REFUSE_PATTERNS = [
+    r"\bdrop\s+all\b",
+    r"\bdelete\s+all\b",
+    r"\btruncate\s+all\b",
+    r"\bdrop\s+everything\b",
+    r"\bwipe\b",
+]
+
+SOFT_WARN_PATTERNS = [
+    r"\bdrop\b",
+    r"\bdelete\b",
+    r"\btruncate\b",
+    r"\bremove\s+table\b",
+    r"\bremove\s+column\b",
+]
+
+
+def check_safety_rules(description):
+    """Check description against safety rules.
+
+    Returns a dict: {"action": "refuse"|"warn"|"allow", "reason": str}
+    """
+    lower = description.lower()
+    for pat in HARD_REFUSE_PATTERNS:
+        if re.search(pat, lower):
+            matched = re.search(pat, lower).group()
+            return {
+                "action": "refuse",
+                "reason": 'Description contained: "{}"'.format(matched),
+            }
+    for pat in SOFT_WARN_PATTERNS:
+        if re.search(pat, lower):
+            matched = re.search(pat, lower).group()
+            return {
+                "action": "warn",
+                "reason": 'Description contained: "{}"'.format(matched),
+            }
+    return {"action": "allow", "reason": ""}
+
+
+def extract_relevant_schema(conn_url, description):
+    """Extract relevant table DDL for a description against a live database.
+
+    Returns a string with CREATE TABLE-style definitions for matched tables.
+    """
+    if not conn_url or not description:
+        return ""
+
+    # Find potential table names in the description
+    words = re.findall(r"[a-zA-Z_]\w*", description.lower())
+    candidates = set()
+    stop_words = {
+        "table",
+        "column",
+        "add",
+        "remove",
+        "all",
+        "with",
+        "that",
+        "have",
+        "from",
+        "each",
+        "every",
+        "and",
+        "the",
+        "for",
+        "not",
+        "new",
+        "null",
+        "default",
+    }
+    for w in words:
+        if len(w) > 1 and w not in stop_words:
+            # Also include singular/plural variants
+            candidates.add(w)
+            if w.endswith("s"):
+                candidates.add(w[:-1])
+            elif not w.endswith("s"):
+                candidates.add(w + "s")
+
+    try:
+        from sqlbag import S
+    except ImportError:
+        return ""
+
+    context_parts = []
+    found_tables = []
+
+    try:
+        with S(conn_url) as s:
+            # Find matching tables
+            for candidate in list(candidates)[:10]:
+                rows = s.execute(
+                    """
+                    SELECT table_schema, table_name
+                    FROM information_schema.tables
+                    WHERE (table_name = %s OR table_name LIKE %s)
+                    AND table_type = 'BASE TABLE'
+                    AND table_schema NOT IN ('pg_catalog', 'information_schema')
+                    ORDER BY table_name
+                    LIMIT 1
+                """,
+                    (candidate, "%{}%".format(candidate)),
+                )
+                matches = list(rows) if hasattr(rows, "__iter__") else rows.fetchall()
+                for schema, tbl in matches:
+                    entry = "{}: {}.{}".format(len(found_tables) + 1, schema, tbl)
+                    if entry not in found_tables:
+                        found_tables.append(entry)
+
+                        # Get columns
+                        col_rows = s.execute(
+                            """
+                            SELECT column_name, data_type,
+                                   character_maximum_length,
+                                   is_nullable, column_default
+                            FROM information_schema.columns
+                            WHERE table_schema = %s AND table_name = %s
+                            ORDER BY ordinal_position
+                        """,
+                            (schema, tbl),
+                        )
+                        cols = (
+                            list(col_rows)
+                            if hasattr(col_rows, "__iter__")
+                            else col_rows.fetchall()
+                        )
+                        if cols:
+                            col_defs = []
+                            for col in cols:
+                                col_name, dtype, char_len, nullable, default = col
+                                col_sql = "  {} {}".format(col_name, dtype)
+                                if char_len:
+                                    col_sql += "({})".format(char_len)
+                                if default:
+                                    col_sql += " DEFAULT {}".format(default)
+                                if nullable == "NO":
+                                    col_sql += " NOT NULL"
+                                col_defs.append(col_sql)
+
+                            table_ddl = "CREATE TABLE {}.{} (\n{}\n);".format(
+                                schema, tbl, "\n".join(col_defs)
+                            )
+                            context_parts.append(
+                                "-- Table {}.{}:\n{}".format(schema, tbl, table_ddl)
+                            )
+
+                        if len(found_tables) >= 5:
+                            break
+                if len(found_tables) >= 5:
+                    break
+
+            # Also check for "all tables with column X" pattern
+            col_pattern = re.search(
+                r"all\s+tables?\s+(?:that\s+)?have?\s+a\s+(\w+)\s+column",
+                description.lower(),
+            )
+            if col_pattern:
+                col_name = col_pattern.group(1)
+                col_rows = s.execute(
+                    """
+                    SELECT table_schema, table_name
+                    FROM information_schema.columns
+                    WHERE column_name = %s
+                    AND table_schema NOT IN ('pg_catalog', 'information_schema')
+                    GROUP BY table_schema, table_name
+                    ORDER BY table_name
+                    LIMIT 5
+                """,
+                    (col_name,),
+                )
+                matches = (
+                    list(col_rows)
+                    if hasattr(col_rows, "__iter__")
+                    else col_rows.fetchall()
+                )
+                for schema, tbl in matches:
+                    entry = "{}: {}.{}".format(len(found_tables) + 1, schema, tbl)
+                    if entry not in found_tables and len(found_tables) < 5:
+                        found_tables.append(entry)
+                        col_rows2 = s.execute(
+                            """
+                            SELECT column_name, data_type,
+                                   character_maximum_length,
+                                   is_nullable, column_default
+                            FROM information_schema.columns
+                            WHERE table_schema = %s AND table_name = %s
+                            ORDER BY ordinal_position
+                        """,
+                            (schema, tbl),
+                        )
+                        cols2 = (
+                            list(col_rows2)
+                            if hasattr(col_rows2, "__iter__")
+                            else col_rows2.fetchall()
+                        )
+                        col_defs = []
+                        for col in cols2:
+                            cn, dt, cl, nl, df = col
+                            cs = "  {} {}".format(cn, dt)
+                            if cl:
+                                cs += "({})".format(cl)
+                            if df:
+                                cs += " DEFAULT {}".format(df)
+                            if nl == "NO":
+                                cs += " NOT NULL"
+                            col_defs.append(cs)
+                        table_ddl2 = "CREATE TABLE {}.{} (\n{}\n);".format(
+                            schema, tbl, "\n".join(col_defs)
+                        )
+                        context_parts.append(
+                            "-- Table {}.{}:\n{}".format(schema, tbl, table_ddl2)
+                        )
+
+    except Exception:
+        return ""
+
+    if not context_parts:
+        return ""
+
+    return "\n\n".join(context_parts)
+
+
+def build_generate_prompt(description, schema_context):
+    schema_text = (
+        schema_context
+        if schema_context
+        else "No schema context available. Use real PostgreSQL types and"
+        " conventional naming."
+    )
+    user_prompt = (
+        "Generate a PostgreSQL migration for:\n"
+        '"{description}"\n\n'
+        "Current schema context:\n"
+        "{schema_context}\n\n"
+        "Generate only the SQL statements needed. No explanations."
+    )
+    return user_prompt.format(
+        description=description,
+        schema_context=schema_text,
+    )
+
+
+def parse_schema_file_for_tables(filepath):
+    """Parse a pg_dump -s file for CREATE TABLE statements."""
+    if not os.path.exists(filepath):
+        return ""
+    try:
+        with open(filepath, "r") as f:
+            content = f.read()
+    except Exception:
+        return ""
+
+    # Extract CREATE TABLE statements
+    tables = re.findall(
+        r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(.+?)\s*\((.+?)\)\s*;",
+        content,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if not tables:
+        return ""
+
+    # Return up to 10 most relevant table definitions
+    parts = []
+    for name, body in tables[:10]:
+        cleaned = re.sub(r"\s+", " ", body.strip())
+        parts.append("CREATE TABLE {} ({});".format(name.strip(), cleaned))
+    return "\n\n".join(parts)
+
+
+class AIGenerator:
+    def __init__(self, api_key):
+        self.api_key = api_key
+
+    def generate(self, description, schema_context=None):
+        import anthropic
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        if not description or not description.strip():
+            return {
+                "text": "MigraDiff: No description provided for generation.",
+                "model": "",
+                "generated_at": timestamp,
+                "schema_context_used": [],
+                "is_destructive": None,
+            }
+
+        # Safety check
+        safety = check_safety_rules(description)
+        if safety["action"] == "refuse":
+            return {
+                "text": (
+                    "MigraDiff: Refusing to generate bulk destructive migration.\n"
+                    "{}\n"
+                    "If intentional, write the SQL manually and use --advise"
+                    " to review.".format(safety["reason"])
+                ),
+                "model": "",
+                "generated_at": timestamp,
+                "schema_context_used": [],
+                "is_destructive": None,
+            }
+
+        is_destructive = safety["action"] == "warn"
+
+        # Build schema context
+        ctx_tables = []
+        if schema_context:
+            for line in schema_context.split("\n"):
+                m = re.match(r"-- Table (.+?):", line)
+                if m:
+                    ctx_tables.append(m.group(1))
+
+        # Generate via AI
+        user_prompt = build_generate_prompt(description, schema_context)
+
+        client = anthropic.Anthropic(api_key=self.api_key)
+        try:
+            response = client.messages.create(
+                model=DEFAULT_MODEL,
+                max_tokens=GENERATE_MAX_TOKENS,
+                temperature=TEMPERATURE,
+                system=GENERATE_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            generated_sql = response.content[0].text.strip()
+
+            # Build output with header
+            lines = []
+            lines.append("--- Generated Migration ---")
+            lines.append("-- Generated by MigraDiff AI")
+            lines.append("-- Description: {}".format(description))
+            if ctx_tables:
+                lines.append("-- Schema context: {}".format(", ".join(ctx_tables)))
+            if not schema_context:
+                lines.append(
+                    "-- Warning: No schema context available. Generated SQL"
+                    " may need adjustment for your actual schema."
+                )
+            lines.append("-- Generated at: {}".format(timestamp))
+            lines.append("-- WARNING: Review before applying to production")
+            if is_destructive:
+                lines.append(
+                    "-- \u26a0 WARNING: This migration contains destructive operations"
+                )
+                lines.append("-- Review carefully before applying to production")
+                lines.append(
+                    "-- Consider: migra --rollback to prepare a reversal first"
+                )
+            lines.append("")
+            lines.append(generated_sql)
+            lines.append("")
+            lines.append("-- Review this migration with: migra --advise migration.sql")
+            lines.append("-- Generate a rollback with: migra --rollback migration.sql")
+
+            return {
+                "text": "\n".join(lines),
+                "model": DEFAULT_MODEL,
+                "generated_at": timestamp,
+                "schema_context_used": ctx_tables,
+                "is_destructive": is_destructive,
+                "generated_sql": generated_sql,
+            }
+        except Exception as e:
+            msg = redact_api_key(str(e))
+            raise RuntimeError("MigraDiff: AI generation failed: {}".format(msg))
+
+
 def setup_ai_interactive(out, err):
     key = None
     try:

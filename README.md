@@ -201,6 +201,25 @@ Combine all three AI features for a complete picture:
 
 Requires pip install migradiff[ai] and an Anthropic API key.
 
+### AI Migration Generator (--generate)
+
+Describe what you want in plain English — MigraDiff generates
+the migration SQL grounded in your actual schema:
+
+    migra --generate "add email verification to users table" \
+      postgres://db_production
+
+Unlike generic AI tools, MigraDiff knows your real table names,
+column types, and constraints — no hallucinated column names or
+wrong types.
+
+Generate and immediately review the risk:
+
+    migra --generate "add index on orders.user_id" \
+      --advise postgres://db_production
+
+Requires pip install migradiff[ai] and an Anthropic API key.
+
 ---
 
 ## Development Setup
