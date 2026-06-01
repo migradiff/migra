@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-01
+
 ### Added
 - --generate flag: AI-powered migration generator from plain
   English descriptions; schema-aware using real table names and

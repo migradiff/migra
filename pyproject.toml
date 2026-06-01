@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "migradiff"
-version = "1.3.0"
+version = "1.4.0"
 authors = [ "MigraDiff Team <migradiff@anomalyco.com>",]
 license = "MIT"
 readme = "README.md"
