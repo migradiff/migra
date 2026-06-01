@@ -43,7 +43,7 @@ outputs:
 
 runs:
   using: docker
-  image: docker://ghcr.io/migradiff/migra:1.3.0
+  image: docker://ghcr.io/migradiff/migra:1.4.0
   env:
     MIGRA_BASE_URL: ${{ inputs.base_url }}
     MIGRA_HEAD_URL: ${{ inputs.head_url }}
