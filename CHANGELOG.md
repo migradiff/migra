@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+## [1.5.0] — 2026-06-01
+
+### Added
+
+- Full `COMMENT ON` diffing support — detects added, changed, and
+  removed comments on tables, columns, views, materialized views,
+  functions, sequences, types, indexes, constraints, and schemas.
+- `--from-file` mode automatically includes `COMMENT ON` diffs
+  (no additional flags needed).
+- `--explain` and `--generate` now use `COMMENT ON` metadata as
+  schema context, giving the AI semantic understanding of what
+  columns and tables are *for*, not just their types.
+- 48 new tests for comment diffing across all object types.
+
+### Notes
+
+- All `COMMENT ON` changes are classified as `safe` risk in
+  `--output json` mode (no locks, no rewrites, fully reversible).
+- Comments are applied after all structural changes in migration
+  output order.
+
 ## [1.4.0] - 2026-06-01
 
 ### Added

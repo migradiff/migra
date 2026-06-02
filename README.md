@@ -321,6 +321,7 @@ configuration options.
 - Foreign data wrappers
 - Column-level privileges
 - Partitioned tables
+- Object comments (`COMMENT ON`)
 
 ---
 
@@ -339,6 +340,7 @@ configuration options.
 | Pre-commit hook | None | `.pre-commit-hooks.yaml` |
 | Dev environment | Manual Docker commands | `docker compose up -d` |
 | AI explanation | None | `--explain` flag with Claude — plain English diff explanation, risk analysis, safer alternatives |
+| COMMENT ON diffing | Not supported | Full diffing — add/change/remove across all object types |
 
 See [CHANGELOG.md](CHANGELOG.md) for the full fix history.
 
