@@ -23,6 +23,10 @@ class _ShimmedStream:
 
 
 def resource_stream(package, resource_name):
+    if isinstance(package, str):
+        mod = sys.modules.get(package)
+        if mod is not None and not hasattr(mod, "__path__"):
+            package = mod.__package__
     return _ShimmedStream(package, resource_name)
 
 
