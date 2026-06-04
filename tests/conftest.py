@@ -67,7 +67,9 @@ def _patched_drop_database(db_url):
 def _patched_kill_other_connections(s_or_c, dbname=None, hardkill=False):
     c = sc.connection_from_s_or_c(s_or_c)
     dbtype = c.engine.dialect.name
-    killquery = sc._killquery(dbtype, dbname=dbname, hardkill=hardkill)
+    from sqlbag.sqla import _killquery
+
+    killquery = _killquery(dbtype, dbname=dbname, hardkill=hardkill)
     if dbname:
         results = c.execute(sa.text(killquery), {"databasename": dbname})
     else:
