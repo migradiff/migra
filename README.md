@@ -49,6 +49,8 @@ cd migra
 pip install -e .
 ```
 
+> **Note:** PyPI package is available on all releases.
+
 ### Basic Usage
 
 Point migra at two database connections and it outputs the DDL needed
