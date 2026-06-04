@@ -67,13 +67,16 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          python -m pip install --upgrade pip --no-cache-dir
-          pip install --force-reinstall --no-cache-dir setuptools wheel
-          pip install pytest psycopg2-binary
+          python -m pip install --upgrade pip
+          pip install setuptools  # Explicit, before anything else
 
-      - name: Install MigraDiff
+      - name: Install dependencies
         run: |
-          pip install --force-reinstall --no-cache-dir -e ".[dev,ai]"
+          pip install wheel pytest psycopg2-binary
+
+      - name: Install MigraDiff with AI support
+        run: |
+          pip install -e ".[dev,ai]"
 
       - name: Run tests
         run: |
