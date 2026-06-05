@@ -181,6 +181,36 @@ Combine with --explain for a complete picture:
 
 Requires `pip install migradiff[ai]` and an Anthropic API key.
 
+### AI Schema Drift Analysis (--explain-drift)
+
+Compare two live PostgreSQL databases and get an AI-powered
+explanation of their differences — ideal for answering "What
+changed in production?":
+
+    migra --explain-drift \
+        --from-db "postgresql://user:pass@old.example.com/db" \
+        --to-db "postgresql://user:pass@prod.example.com/db"
+
+Output categorizes each change as BREAKING, WARNING, or INFO,
+and includes live table sizes for risk assessment:
+
+    Schema Drift Analysis: old → prod
+
+    Changes Detected:
+
+    1. Table "users" — DROPPED
+       - Columns: id, email, created_at
+
+    2. Table "accounts" — MODIFIED
+       - Column "status" type changed: VARCHAR → ENUM
+       - New column: "last_login_at"
+
+    Risk Analysis:
+    - BREAKING: "users" table was dropped. Historical data loss.
+    - INFO: New "accounts.last_login_at" column. No migration needed.
+
+Requires `pip install migradiff[ai]` and an Anthropic API key.
+
 ### AI Performance Advisor (--advise)
 
 Before applying any migration, get a performance risk assessment
@@ -341,6 +371,7 @@ configuration options.
 | Dev environment | Manual Docker commands | `docker compose up -d` |
 | AI explanation | None | `--explain` flag with Claude — plain English diff explanation, risk analysis, safer alternatives |
 | COMMENT ON diffing | Not supported | Full diffing — add/change/remove across all object types |
+| AI drift analysis | None | `--explain-drift` — compare two live databases, AI explains differences with risk categorization |
 
 See [CHANGELOG.md](CHANGELOG.md) for the full fix history.
 

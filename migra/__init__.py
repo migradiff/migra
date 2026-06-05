@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 import migra._compat_pkg_resources  # noqa: F401  (ensure pkg_resources available for schemainspect)
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 from .changes import Changes
 from .command import do_command

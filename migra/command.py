@@ -510,6 +510,25 @@ def parse_args(args):
         help="Interactively configure AI API key and save to config file",
     )
     parser.add_argument(
+        "--explain-drift",
+        dest="explain_drift",
+        action="store_true",
+        default=False,
+        help="Explain schema differences between two live databases using AI",
+    )
+    parser.add_argument(
+        "--from-db",
+        dest="from_db",
+        default=None,
+        help="Source database URL (for --explain-drift)",
+    )
+    parser.add_argument(
+        "--to-db",
+        dest="to_db",
+        default=None,
+        help="Target database URL (for --explain-drift)",
+    )
+    parser.add_argument(
         "--rollback",
         dest="rollback",
         nargs="?",
@@ -554,6 +573,74 @@ def run(args, out=None, err=None):
 
         return setup_ai_interactive(out, err)
 
+    # Explain drift mode
+    if args.explain_drift:
+        if not args.from_db or not args.to_db:
+            print(
+                "ERROR: --explain-drift requires both --from-db and --to-db.",
+                file=err,
+            )
+            return 1
+
+        try:
+            import anthropic  # noqa: F401, F811
+        except ImportError:
+            print(
+                "MigraDiff: --explain-drift requires the AI extras.",
+                file=err,
+            )
+            print("Install with: pip install migradiff[ai]", file=err)
+            return 1
+
+        from .ai_explain import resolve_api_key
+
+        api_key = resolve_api_key(cli_key=args.api_key)
+        if not api_key:
+            print(
+                "MigraDiff: --explain-drift requires an Anthropic API key.",
+                file=err,
+            )
+            print(file=err)
+            print("Set it up once with:", file=err)
+            print("  migra --setup-ai", file=err)
+            print(file=err)
+            print("Or set the environment variable:", file=err)
+            print("  export ANTHROPIC_API_KEY=sk-ant-...", file=err)
+            print(file=err)
+            print(
+                "Get an API key at: https://console.anthropic.com",
+                file=err,
+            )
+            return 1
+
+        try:
+            from .db_inspector import compare_schemas, get_remote_schema
+
+            from_label, to_label = args.from_db, args.to_db
+            old_schema = get_remote_schema(args.from_db)
+            new_schema = get_remote_schema(args.to_db)
+            diff = compare_schemas(old_schema, new_schema)
+
+            from .ai_drift import DriftExplainer
+
+            explainer = DriftExplainer(api_key)
+            table_sizes = new_schema.get("table_sizes", {})
+            explanation = explainer.explain_drift(
+                diff, from_label, to_label, table_sizes
+            )
+            print(explanation["text"], file=out)
+            return 0
+        except RuntimeError as e:
+            print(str(e), file=err)
+            return 1
+        except Exception as e:
+            msg = str(e)
+            print(
+                "MigraDiff: drift analysis failed: {}".format(msg),
+                file=err,
+            )
+            return 1
+
     # Rollback mode with file (no connection strings needed)
     if args.rollback and isinstance(args.rollback, str):
         from .ai_explain import generate_file_rollback
@@ -586,7 +673,7 @@ def run(args, out=None, err=None):
             return 1
 
         try:
-            import anthropic  # noqa: F401
+            import anthropic  # noqa: F401, F811
         except ImportError:
             print(
                 "MigraDiff: --generate requires the AI extras.",
@@ -888,7 +975,7 @@ def _run_inner(args, out=None, err=None):
             from .ai_explain import AIExplainer, resolve_api_key, redact_api_key
 
             try:
-                import anthropic  # noqa: F401
+                import anthropic  # noqa: F401, F811, F811
             except ImportError:
                 print(
                     "MigraDiff: --explain requires the AI extras.",
@@ -936,7 +1023,7 @@ def _run_inner(args, out=None, err=None):
             from .ai_explain import AIRollback, resolve_api_key, redact_api_key
 
             try:
-                import anthropic  # noqa: F401, F811
+                import anthropic  # noqa: F401, F811, F811
             except ImportError:
                 print(
                     "MigraDiff: --rollback requires the AI extras.",
@@ -997,7 +1084,7 @@ def _run_inner(args, out=None, err=None):
             from .ai_explain import AIAdvisor, resolve_api_key, redact_api_key
 
             try:
-                import anthropic  # noqa: F401, F811
+                import anthropic  # noqa: F401, F811, F811
             except ImportError:
                 print(
                     "MigraDiff: --advise requires the AI extras.",

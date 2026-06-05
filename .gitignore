@@ -47,3 +47,5 @@ pip-wheel-metadata
 .DS_Store
 
 .vscode
+
+PROJECT_PLAN*.md

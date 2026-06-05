@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [1.6.0] — 2026-06-04
+
+### Added
+
+- `--explain-drift` flag: AI-powered schema drift analysis between two
+  live PostgreSQL databases; compares tables, columns, types, indexes,
+  constraints, views, enums, extensions, functions, and sequences;
+  incorporates live table sizes for risk assessment; categorizes each
+  change as BREAKING, WARNING, or INFO; powered by Claude Haiku.
+- `--from-db` and `--to-db` connection string arguments for drift analysis.
+- Database introspection module (`migra/db_inspector.py`) with
+  `get_remote_schema()` and `compare_schemas()` for standalone use.
+- AI drift explainer class (`migra/ai_drift.py`) following the same
+  pattern as existing AI features.
+- 60+ new tests for drift analysis, security, and CLI integration.
+
 ## [1.5.0] — 2026-06-01
 
 ### Added
