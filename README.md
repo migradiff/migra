@@ -1,3 +1,20 @@
+# MigraDiff
+
+<div align="center">
+
+**Choose a language:**  
+[English](README.md) | 
+[हिन्दी](README.hi.md) | 
+[中文](README.zh.md) | 
+[日本語](README.ja.md) | 
+[Français](README.fr.md) | 
+[Deutsch](README.de.md) | 
+[עברית](README.he.md)
+
+</div>
+
+---
+
 # migra — PostgreSQL Schema Diff Tool
 
 [![PyPI version](https://img.shields.io/pypi/v/migradiff)](https://pypi.org/project/migradiff/)
@@ -405,17 +422,29 @@ pytest
 
 ---
 
-## Enterprise
+## Licensing
 
-MigraDiff is MIT licensed. If you are building a commercial product
-on top of MigraDiff, we'd love to hear from you —
-enterprise@Lateos.ai
+MigraDiff is **free and open source** under the MIT license.
 
----
+**All features work for everyone.** No paywalls, no code restrictions, no gatekeeping.
 
-## License
+### A Quick Story
 
-MIT. See [LICENSE](LICENSE).
+I spent 8+ years as an engineer at Philips, supporting hospital IT systems that keep patients safe. When the VC who acquired our division let me go, I was 50+ years old in a market where age matters. Finding another job became nearly impossible. I still need to support my family and put food on the table.
+
+That's why MigraDiff exists. I'm building tools that help you, because this is how I stay employed.
+
+### Here's the Ask
+
+**If you're a student, hobbyist, or open source project:** MIT license, free forever. No agreement needed.
+
+**If you're a for-profit company using MigraDiff:** Please sign a Business License Agreement. This isn't about gatekeeping code—every feature stays free, you run it locally, nothing changes for you technically. It's about fairness: if my tool is helping you make money, help me feed my family.
+
+You still own everything. You control your data. You access all features. We're just being transparent about how we sustain development.
+
+I'm not asking for charity. I'm asking for fairness.
+
+[Get a Business License](https://lateos.ai/license) | [View MIT License](LICENSE)
 
 ---
 
