@@ -335,17 +335,11 @@ migra nécessite une connexion PostgreSQL en direct pour introspecter les schém
 
 ---
 
-## Contribution
+## Avis de Contribution
 
-Les signalements de bugs et les PR sont les bienvenus. Si vous corrigez quelque chose qui a été signalé dans `djrobstep/migra`, référencez ce numéro de problème dans votre PR — cela nous aide à suivre ce que la communauté a le plus besoin de voir corrigé.
+Merci de votre intérêt pour ce projet. Veuillez noter que nous n'acceptons actuellement aucune contribution de code externe, pull request, correction de bug ou soumission de fonctionnalité.
 
-```bash
-git clone https://github.com/migradiff/migra
-cd migra
-docker compose up -d
-pip install -e ".[dev]"
-pytest
-```
+Toute pull request ouverte sera automatiquement fermée sans examen.
 
 ---
 

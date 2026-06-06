@@ -406,19 +406,13 @@ or schema dump files via `--from-file`. It does not parse raw DDL text.
 
 ---
 
-## Contributing
+## Contributing Notice
 
-Bug reports and PRs are welcome. If you're fixing something that was
-reported upstream in `djrobstep/migra`, reference that issue number
-in your PR — it helps us track what the community most needs fixed.
+Thank you for your interest in this project. Please note that we are
+currently not accepting any external code contributions, pull requests,
+bug fixes, or feature submissions at this time.
 
-```bash
-git clone https://github.com/migradiff/migra
-cd migra
-docker compose up -d
-pip install -e ".[dev]"
-pytest
-```
+Any pull requests opened will be automatically closed without review.
 
 ---
 

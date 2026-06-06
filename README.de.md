@@ -335,17 +335,11 @@ migra benötigt eine Live-PostgreSQL-Verbindung zur Schema-Introspection oder Sc
 
 ---
 
-## Mitwirken
+## Mitwirkungshinweis
 
-Fehlerberichte und PRs sind willkommen. Wenn Sie etwas beheben, das im Upstream `djrobstep/migra` gemeldet wurde, verweisen Sie in Ihrem PR auf diese Issue-Nummer — das hilft uns zu verfolgen, was die Community am dringendsten behoben haben möchte.
+Vielen Dank für Ihr Interesse an diesem Projekt. Bitte beachten Sie, dass wir derzeit keine externen Codebeiträge, Pull Requests, Fehlerbehebungen oder Funktionsvorschläge annehmen.
 
-```bash
-git clone https://github.com/migradiff/migra
-cd migra
-docker compose up -d
-pip install -e ".[dev]"
-pytest
-```
+Alle geoffneten Pull Requests werden ohne Uberprufung automatisch geschlossen.
 
 ---
 
