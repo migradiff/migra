@@ -8,11 +8,10 @@ description = "Like `diff` but for PostgreSQL schemas — actively maintained fo
 
 repository = "https://github.com/postgresql-tools/migra"
 homepage = "https://github.com/postgresql-tools/migra"
+packages = [{ include = "migra" }]
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/postgresql-tools/migra/issues"
-
-packages = [{ include = "migra" }]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4"
